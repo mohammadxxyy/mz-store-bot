@@ -44,7 +44,7 @@ logger = logging.getLogger("MZ_Store_Bot")
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(ENV_FILE)
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8814482309:AAFj_EMkmi5aRAkOAvm4tSjQvN_3QYZqQMU")
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8814482309:AAG9QsKiBtTBPU6YYA6BR8HsTvkiAEga3fQ")
 ORDERS_GROUP_ID = os.getenv("ORDERS_GROUP_ID", "")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "")
 
