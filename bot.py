@@ -103,6 +103,7 @@ def start_health_check_server() -> None:
 # حالات المحادثة
 STATE_INPUT_DELIVERY, STATE_SELECT_PAYMENT, STATE_CONFIRM_ORDER = range(3)
 STATE_TRACK_INPUT = 10
+STATE_SEARCH_INPUT = 20
 
 
 # دالة مساعدة لتعديل الرسائل بأمان
@@ -133,19 +134,22 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     """القائمة الرئيسية لمتجر MZ للخدمات الرقمية"""
     keyboard = [
         [
-            InlineKeyboardButton("🛍️ تصفح الكتالوج والأقسام الرقمية", callback_data="menu_catalog"),
+            InlineKeyboardButton("🛍️ تصفح الكتالوج والأقسام الرقمية (150+ خدمة)", callback_data="menu_catalog"),
         ],
         [
+            InlineKeyboardButton("🔎 بحث سريع عن خدمة أو تطبيق", callback_data="menu_search"),
             InlineKeyboardButton("🔍 متابعة حالة طلبي", callback_data="menu_track"),
-            InlineKeyboardButton("🎟️ كود خصم 10% ترحيبي", callback_data="menu_promo"),
         ],
         [
+            InlineKeyboardButton("🎟️ كود خصم 10% ترحيبي", callback_data="menu_promo"),
             InlineKeyboardButton("💳 طرق الدفع المعتمدة", callback_data="menu_payment_info"),
+        ],
+        [
             InlineKeyboardButton("📦 سجل طلباتي", callback_data="menu_my_orders"),
+            InlineKeyboardButton("💬 الدعم الفني وخدمة العملاء", callback_data="menu_support"),
         ],
         [
             InlineKeyboardButton("🍋 عن ليمونة تيك وماركت هب", callback_data="menu_about"),
-            InlineKeyboardButton("💬 الدعم الفني وخدمة العملاء", callback_data="menu_support"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -174,21 +178,51 @@ def categories_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🍋 خدمات ليمونة تيك وماركت هب", callback_data="cat_agency"),
         ],
         [
+            InlineKeyboardButton("🔎 بحث سريع عن خدمة أو تطبيق", callback_data="menu_search"),
+        ],
+        [
             InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="menu_main"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
-def services_in_category_keyboard(cat_id: str) -> InlineKeyboardMarkup:
-    """أزرار الخدمات داخل قسم معين"""
+def services_in_category_keyboard(cat_id: str, page: int = 0, page_size: int = 6) -> InlineKeyboardMarkup:
+    """أزرار الخدمات داخل قسم معين مع دعم التنقل بين الصفحات (Pagination)"""
+    cat_services = [
+        (srv_id, srv_data)
+        for srv_id, srv_data in SERVICES.items()
+        if srv_data["category"] == cat_id
+    ]
+
+    total_services = len(cat_services)
+    total_pages = max(1, (total_services + page_size - 1) // page_size)
+    page = max(0, min(page, total_pages - 1))
+
+    start_idx = page * page_size
+    end_idx = start_idx + page_size
+    page_items = cat_services[start_idx:end_idx]
+
     keyboard = []
-    for srv_id, srv_data in SERVICES.items():
-        if srv_data["category"] == cat_id:
-            keyboard.append(
-                [InlineKeyboardButton(f"{srv_data['icon']} {srv_data['name']}", callback_data=f"view_{srv_id}")]
-            )
-    keyboard.append([InlineKeyboardButton("🔙 عودة للأقسام", callback_data="menu_catalog")])
+    for srv_id, srv_data in page_items:
+        keyboard.append(
+            [InlineKeyboardButton(f"{srv_data['icon']} {srv_data['name']}", callback_data=f"view_{srv_id}")]
+        )
+
+    # أزرار التنقل بين الصفحات إن كان هناك أكثر من صفحة
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"page_{cat_id}_{page - 1}"))
+        nav_row.append(InlineKeyboardButton(f"📄 {page + 1}/{total_pages}", callback_data="ignore_click"))
+        if page < total_pages - 1:
+            nav_row.append(InlineKeyboardButton("التالي ➡️", callback_data=f"page_{cat_id}_{page + 1}"))
+        keyboard.append(nav_row)
+
+    keyboard.append([
+        InlineKeyboardButton("🔎 بحث بالاسم", callback_data="menu_search"),
+        InlineKeyboardButton("🔙 عودة للأقسام", callback_data="menu_catalog"),
+    ])
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -225,15 +259,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         f"👑 **أهلاً بك يا {user.first_name} في متجر MZ للخدمات الرقمية** 🛍️✨\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "🍋 **التابع لشركة ليمونة تيك (Laymouna Tech) ومنصة ماركت هب (Market Hub).**\n\n"
-        "🎯 **وجهتك الأولى لأفضل المنتجات الرقمية الأصلية والمضمونة:**\n"
+        "🎯 **وجهتك الأولى لأكثر من 150 اشتراك ومنصة رقمية أصلية ومضمونة:**\n"
         "• 🎬 اشتراكات ترفيه (Netflix 4K, Shahid VIP, YouTube Premium, Spotify).\n"
-        "• 🤖 أدوات الذكاء الاصطناعي والتصميم (ChatGPT Plus, Canva Pro, CapCut Pro).\n"
+        "• 🤖 أدوات الذكاء الاصطناعي والتصميم (Google Gemini Advanced, ChatGPT Plus, Claude, Midjourney, Canva Pro).\n"
         "• 🎮 شحن شدات ببجي، فري فاير، بطاقات بلايستيشن وستيم بأرخص الأسعار.\n"
-        "• 💻 تراخيص Windows الأصلية وحزم Office 365 مدى الحياة.\n"
+        "• 💻 تراخيص Windows الأصلية وحزم Office 365 وشبكات VPN العالمية.\n"
         "• ✈️ تيلجرام بريميوم، خدمات المتابعين، وحلول ليمونة تيك وماركت هب البرمجية.\n\n"
-        "🎁 **كود خصم ترحيبي:** استخدم الكود `MZ10` واحصل على خصم 10% على أول طلب!\n"
+        "🎁 **كود خصم ترحيبي:** استخدم الكود `MZ10` واحصل على خصم 10% على أي طلب!\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "👇 **اختر من القائمة أدناه لتصفح الخدمات والطلب فوراً:**"
+        "👇 **اختر من القائمة أو استخدم البحث السريع للطلب فوراً:**"
     )
 
     if update.callback_query:
@@ -250,9 +284,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """أمر المساعدة ودليل الاستخدام"""
     text = (
-        "📖 **دليل استخدام متجر MZ الرقمي:**\n\n"
+        "📖 **دليل استخدام متجر MZ الرقمي (150+ خدمة):**\n\n"
         "• `/start` - القائمة الرئيسية وتصفح الأقسام\n"
-        "• `/catalog` - استعراض جميع الخدمات والتطبيقات المتاحة\n"
+        "• `/catalog` - استعراض جميع الخدمات والتطبيقات المتاحة (150+ منصة)\n"
+        "• `/search <الاسم>` - البحث الفوري عن أي تطبيق أو اشتراك (مثال: `/search gemini`)\n"
         "• `/track <كود_الطلب>` - الاستعلام عن حالة طلبك\n"
         "• `/support` - التواصل المباشر مع الدعم الفني\n"
         "• `/setgroup` - ربط مجموعة التيلجرام لتلقي إشعارات الطلبات الجديدة (لفريق العمل)\n\n"
@@ -579,6 +614,123 @@ async def track_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 # -------------------------------------------------------------
+# 5. محادثة والبحث السريع في الكتالوج (Search Services Flow)
+# -------------------------------------------------------------
+
+def search_services(query: str, max_results: int = 8):
+    """البحث في أكثر من 150 خدمة وتطبيق رقمي بالاسم والوصف والكلمات المفتاحية"""
+    query = query.strip().lower()
+    if not query:
+        return []
+    
+    results = []
+    for srv_id, srv_data in SERVICES.items():
+        score = 0
+        name = srv_data["name"].lower()
+        desc = srv_data["desc"].lower()
+        keywords = [k.lower() for k in srv_data.get("keywords", [])]
+
+        if query in name:
+            score += 10
+        if any(query in kw for kw in keywords):
+            score += 5
+        if query in desc:
+            score += 2
+
+        if score > 0:
+            results.append((score, srv_id, srv_data))
+
+    results.sort(key=lambda x: x[0], reverse=True)
+    return [item[1:] for item in results[:max_results]]
+
+
+async def start_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """بدء محادثة البحث السريع"""
+    text = (
+        "🔎 **البحث الفوري في متجر MZ للخدمات الرقمية:**\n\n"
+        "أدخل اسم التطبيق، المنصة، أو الخدمة التي تبحث عنها:\n"
+        "*(مثال: `Gemini`، `نتفلكس`، `ببجي`، `شاهد`، `ChatGPT`، `Canva`)*"
+    )
+    cancel_kb = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="menu_main")]]
+    )
+    if update.callback_query:
+        try:
+            await update.callback_query.answer()
+        except Exception:
+            pass
+        await safe_edit_message(update.callback_query, text, reply_markup=cancel_kb)
+    else:
+        await update.message.reply_text(text, reply_markup=cancel_kb, parse_mode="Markdown")
+    return STATE_SEARCH_INPUT
+
+
+async def process_search_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """معالجة نص البحث وعرض الخدمات المطابقة"""
+    search_query = update.message.text.strip()
+    matches = search_services(search_query, max_results=8)
+
+    if not matches:
+        text = (
+            f"🔍 لم نعثر على أي خدمة مطابقة لـ: **{search_query}** 😕\n\n"
+            "يمكنك تجربة كتابة اسم التطبيق بالإنجليزية أو تصفح الأقسام الكاملة (150+ منصة)."
+        )
+        retry_kb = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("🔄 بحث عن خدمة أخرى", callback_data="menu_search")],
+                [InlineKeyboardButton("🛍️ تصفح كافة الأقسام", callback_data="menu_catalog")],
+                [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="menu_main")],
+            ]
+        )
+        await update.message.reply_text(text, reply_markup=retry_kb, parse_mode="Markdown")
+        return ConversationHandler.END
+
+    text = (
+        f"🎯 **نتائج البحث عن:** `{search_query}` ({len(matches)} نتائج):\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "اضغط على أي خدمة أدناه للاطلاع على التفاصيل والأسعار والطلب الفوري:"
+    )
+    keyboard = []
+    for srv_id, srv_data in matches:
+        keyboard.append([
+            InlineKeyboardButton(f"{srv_data['icon']} {srv_data['name']}", callback_data=f"view_{srv_id}")
+        ])
+    keyboard.append([
+        InlineKeyboardButton("🔎 بحث جديد", callback_data="menu_search"),
+        InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="menu_main"),
+    ])
+
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+    return ConversationHandler.END
+
+
+async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """أمر /search المباشر"""
+    if not context.args:
+        await update.message.reply_text(
+            "⚠️ الرجاء كتابة اسم الخدمة بعد الأمر، مثال:\n`/search gemini` أو `/search نتفلكس`",
+            parse_mode="Markdown",
+        )
+        return
+
+    query_str = " ".join(context.args).strip()
+    matches = search_services(query_str, max_results=8)
+    if not matches:
+        text = f"🔍 لم نجد أي نتائج لـ: `{query_str}`. جرب كلمة أخرى أو تصفح /catalog."
+        await update.message.reply_text(text, reply_markup=back_to_main_keyboard(), parse_mode="Markdown")
+        return
+
+    text = f"🎯 **نتائج البحث عن:** `{query_str}`:"
+    keyboard = []
+    for srv_id, srv_data in matches:
+        keyboard.append([
+            InlineKeyboardButton(f"{srv_data['icon']} {srv_data['name']}", callback_data=f"view_{srv_id}")
+        ])
+    keyboard.append([InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="menu_main")])
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+
+# -------------------------------------------------------------
 # 5. معالجات القوائم العامة (Menu Callbacks)
 # -------------------------------------------------------------
 
@@ -619,7 +771,28 @@ async def menu_callbacks_handler(update: Update, context: ContextTypes.DEFAULT_T
             f"{cat['desc']}\n\n"
             "👇 **اختر التطبيق أو الخدمة المطلوبة للاطلاع على الباقات والأسعار:**"
         )
-        await safe_edit_message(query, text, reply_markup=services_in_category_keyboard(data))
+        await safe_edit_message(query, text, reply_markup=services_in_category_keyboard(data, page=0))
+
+    # تقليب صفحات الخدمات داخل القسم (Pagination)
+    elif data.startswith("page_"):
+        parts = data.split("_")
+        # Format: page_{cat_id}_{page_num} -> cat_id has prefix cat_ e.g. cat_entertainment
+        # parts: ['page', 'cat', 'entertainment', '1']
+        page_num = int(parts[-1])
+        cat_id = "_".join(parts[1:-1])
+        if cat_id in CATEGORIES:
+            cat = CATEGORIES[cat_id]
+            text = (
+                f"{cat['icon']} **{cat['title']}**\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                f"{cat['desc']}\n\n"
+                "👇 **اختر التطبيق أو الخدمة المطلوبة للاطلاع على الباقات والأسعار:**"
+            )
+            await safe_edit_message(query, text, reply_markup=services_in_category_keyboard(cat_id, page=page_num))
+
+    # تجاهل الضغط على مؤشر الصفحة الحالي
+    elif data == "ignore_click":
+        pass
 
     # استعراض تفاصيل وباقات خدمة معينة
     elif data.startswith("view_"):
@@ -877,10 +1050,11 @@ def main() -> None:
         fallbacks=[
             CommandHandler("cancel", cancel_conversation),
             CommandHandler("start", start_command),
-            CallbackQueryHandler(cancel_conversation, pattern="^cancel_order$"),
+            CallbackQueryHandler(cancel_conversation, pattern="^(cancel_order|menu_main)$"),
             CallbackQueryHandler(menu_callbacks_handler, pattern="^menu_.*"),
             CallbackQueryHandler(menu_callbacks_handler, pattern="^cat_.*"),
             CallbackQueryHandler(menu_callbacks_handler, pattern="^view_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^page_.*"),
         ],
         per_chat=True,
         per_user=True,
@@ -902,6 +1076,33 @@ def main() -> None:
             CommandHandler("start", start_command),
             CallbackQueryHandler(cancel_conversation, pattern="^(cancel_order|menu_main)$"),
             CallbackQueryHandler(menu_callbacks_handler, pattern="^menu_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^cat_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^view_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^page_.*"),
+        ],
+        per_chat=True,
+        per_user=True,
+        per_message=False,
+    )
+
+    # محادثة البحث الفوري
+    search_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_search, pattern="^menu_search$"),
+        ],
+        states={
+            STATE_SEARCH_INPUT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_search_input),
+            ],
+        },
+        fallbacks=[
+            CommandHandler("cancel", cancel_conversation),
+            CommandHandler("start", start_command),
+            CallbackQueryHandler(cancel_conversation, pattern="^(cancel_order|menu_main)$"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^menu_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^cat_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^view_.*"),
+            CallbackQueryHandler(menu_callbacks_handler, pattern="^page_.*"),
         ],
         per_chat=True,
         per_user=True,
@@ -910,10 +1111,12 @@ def main() -> None:
 
     application.add_handler(order_conv)
     application.add_handler(track_conv)
+    application.add_handler(search_conv)
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("catalog", lambda u, c: menu_callbacks_handler(u, c)))
+    application.add_handler(CommandHandler("search", search_command))
     application.add_handler(CommandHandler("track", track_command))
     application.add_handler(CommandHandler("setgroup", set_group_command))
     application.add_handler(CommandHandler("stats", stats_command))
